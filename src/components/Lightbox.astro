@@ -1,0 +1,276 @@
+<div id="lightbox" class="lightbox">
+  <div class="lightbox-content">
+    <button class="close-button" aria-label="Close lightbox">&times;</button>
+    <button class="nav-button prev" aria-label="Previous image">&lt;</button>
+    <button class="nav-button next" aria-label="Next image">&gt;</button>
+    <img id="lightbox-image" src="" alt="Painting in lightbox" />
+    <div class="image-counter">
+      <span id="current-image">1</span>/<span id="total-images">1</span>
+    </div>
+  </div>
+</div>
+
+<style>
+  .lightbox {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.9);
+    z-index: 1000;
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out;
+  }
+
+  .lightbox.active {
+    display: flex;
+    opacity: 1;
+  }
+
+  .lightbox-content {
+    position: relative;
+    margin: auto;
+    max-width: 90%;
+    max-height: 90%;
+  }
+
+  #lightbox-image {
+    max-width: 100%;
+    max-height: 90vh;
+    object-fit: contain;
+    border-radius: 4px;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+  }
+
+  .close-button {
+    position: absolute;
+    top: -40px;
+    right: -40px;
+    width: 40px;
+    height: 40px;
+    border: none;
+    background: none;
+    color: white;
+    font-size: 32px;
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+
+  .close-button:hover {
+    color: #0077ff;
+  }
+
+  .nav-button {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 40px;
+    height: 60px;
+    border: none;
+    background: rgba(0, 0, 0, 0.5);
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-radius: 4px;
+    display: none;
+  }
+
+  .nav-button:hover {
+    background: rgba(0, 119, 255, 0.8);
+  }
+
+  .nav-button.prev {
+    left: -60px;
+  }
+
+  .nav-button.next {
+    right: -60px;
+  }
+
+  .nav-button.visible {
+    display: block;
+  }
+
+  .image-counter {
+    position: absolute;
+    bottom: -30px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: white;
+    font-size: 16px;
+    display: none;
+  }
+
+  .image-counter.visible {
+    display: block;
+  }
+
+  @media (max-width: 768px) {
+    .close-button {
+      top: -40px;
+      right: 0;
+    }
+
+    .nav-button {
+      width: 40px;
+      height: 100%;
+      top: 0;
+      transform: none;
+      background: rgba(0, 0, 0, 0.3);
+    }
+
+    .nav-button.prev {
+      left: 0;
+    }
+
+    .nav-button.next {
+      right: 0;
+    }
+  }
+</style>
+
+<script>
+  declare global {
+    interface Window {
+      lightboxFunctions: {
+        openLightbox: (mainImageUrl: string, additionalImages?: string[], initialIndex?: number) => void;
+        closeLightbox: () => void;
+      }
+    }
+  }
+
+  let lightbox: HTMLElement | null;
+  let lightboxImage: HTMLImageElement | null;
+  let prevButton: HTMLElement | null;
+  let nextButton: HTMLElement | null;
+  let currentImageElement: HTMLElement | null;
+  let totalImagesElement: HTMLElement | null;
+  let imageCounter: HTMLElement | null;
+  
+  let currentImages: string[] = [];
+  let currentImageIndex = 0;
+
+  function initLightbox() {
+    lightbox = document.getElementById('lightbox');
+    lightboxImage = document.getElementById('lightbox-image') as HTMLImageElement;
+    prevButton = lightbox?.querySelector('.prev') as HTMLElement;
+    nextButton = lightbox?.querySelector('.next') as HTMLElement;
+    currentImageElement = document.getElementById('current-image');
+    totalImagesElement = document.getElementById('total-images');
+    imageCounter = lightbox?.querySelector('.image-counter') as HTMLElement;
+
+    if (!lightbox || !lightboxImage) return;
+
+    // Close lightbox when clicking outside the image
+    lightbox.addEventListener('click', (e) => {
+      if (e.target === lightbox) {
+        closeLightbox();
+      }
+    });
+
+    // Close lightbox when clicking the close button
+    const closeButton = lightbox.querySelector('.close-button');
+    if (closeButton) {
+      closeButton.addEventListener('click', closeLightbox);
+    }
+
+    // Navigation button click handlers
+    prevButton?.addEventListener('click', showPreviousImage);
+    nextButton?.addEventListener('click', showNextImage);
+
+    // Keyboard navigation
+    document.addEventListener('keydown', (e) => {
+      if (!lightbox?.classList.contains('active')) return;
+      
+      switch (e.key) {
+        case 'Escape':
+          closeLightbox();
+          break;
+        case 'ArrowLeft':
+          showPreviousImage();
+          break;
+        case 'ArrowRight':
+          showNextImage();
+          break;
+      }
+    });
+  }
+
+  function showPreviousImage() {
+    if (currentImageIndex > 0) {
+      currentImageIndex--;
+      updateImage();
+    }
+  }
+
+  function showNextImage() {
+    if (currentImageIndex < currentImages.length - 1) {
+      currentImageIndex++;
+      updateImage();
+    }
+  }
+
+  function updateImage() {
+    if (!lightboxImage || !currentImageElement || !totalImagesElement) return;
+    
+    lightboxImage.src = currentImages[currentImageIndex];
+    currentImageElement.textContent = (currentImageIndex + 1).toString();
+    
+    // Update navigation buttons visibility
+    if (prevButton) {
+      prevButton.classList.toggle('visible', currentImageIndex > 0);
+    }
+    if (nextButton) {
+      nextButton.classList.toggle('visible', currentImageIndex < currentImages.length - 1);
+    }
+  }
+
+  function openLightbox(mainImageUrl: string, additionalImages: string[] = [], initialIndex: number = 0) {
+    if (!lightbox || !lightboxImage || !imageCounter) return;
+
+    // Combine main image with additional images
+    currentImages = [mainImageUrl, ...additionalImages];
+    currentImageIndex = Math.min(Math.max(0, initialIndex), currentImages.length - 1); // Ensure index is within bounds
+
+    // Update total images count
+    if (totalImagesElement) {
+      totalImagesElement.textContent = currentImages.length.toString();
+    }
+
+    // Show/hide counter and navigation based on number of images
+    const hasMultipleImages = currentImages.length > 1;
+    imageCounter.classList.toggle('visible', hasMultipleImages);
+    
+    if (prevButton && nextButton) {
+      prevButton.classList.toggle('visible', currentImageIndex > 0);
+      nextButton.classList.toggle('visible', currentImageIndex < currentImages.length - 1);
+    }
+
+    // Show the initial image
+    updateImage();
+    
+    // Show lightbox
+    lightbox.classList.add('active');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeLightbox() {
+    if (!lightbox) return;
+    lightbox.classList.remove('active');
+    document.body.style.overflow = '';
+    currentImages = [];
+    currentImageIndex = 0;
+  }
+
+  // Export functions to window object for external access
+  window.lightboxFunctions = {
+    openLightbox,
+    closeLightbox
+  };
+
+  // Initialize lightbox when the DOM is loaded
+  document.addEventListener('DOMContentLoaded', initLightbox);
+</script> 

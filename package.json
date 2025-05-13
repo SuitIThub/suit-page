@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "astro": "^5.7.12",
+    "fontkit": "2.0.4",
     "three": "^0.176.0"
   },
   "devDependencies": {

@@ -2,6 +2,93 @@
 // No Astro props for now; you can add props for link labels or painting count later
 // Get the current path to determine initial focus
 const currentPath = Astro.url.pathname;
+import Lightbox from './Lightbox.astro';
+
+// Define paintings array at the top level so it's available in both markup and script
+const paintings = [
+  {
+    url: '/images/painting1.png',
+    title: 'Home',
+    slug: 'home',
+    description: 'Welcome to our gallery',
+    images: [
+      '/images/painting2.png',
+      '/images/painting3.png',
+      '/images/painting4.png',
+      '/images/painting2.png',
+      '/images/painting3.png',
+      '/images/painting4.png',
+      '/images/painting2.png',
+      '/images/painting3.png',
+      '/images/painting4.png',
+      '/images/painting2.png',
+      '/images/painting3.png',
+      '/images/painting4.png',
+      '/images/painting2.png',
+      '/images/painting3.png',
+      '/images/painting4.png',
+      '/images/painting2.png',
+      '/images/painting3.png',
+      '/images/painting4.png',
+      '/images/painting2.png',
+      '/images/painting3.png',
+      '/images/painting4.png',
+      '/images/painting2.png',
+      '/images/painting3.png',
+      '/images/painting4.png',
+      '/images/painting2.png',
+      '/images/painting3.png',
+      '/images/painting4.png',
+    ]
+  },
+  {
+    url: '/images/painting3.png',
+    title: 'About',
+    slug: 'about',
+    description: 'Learn about us'
+  },
+  {
+    url: '/images/painting2.png',
+    title: 'Gallery',
+    slug: 'gallery',
+    description: 'Our collection of works',
+    images: [
+      '/images/painting1.png',
+      '/images/painting3.png',
+      '/images/painting4.png',
+      '/images/painting1.png',
+      '/images/painting3.png',
+      '/images/painting4.png',
+      '/images/painting1.png',
+      '/images/painting3.png',
+      '/images/painting4.png',
+      '/images/painting1.png',
+      '/images/painting3.png',
+      '/images/painting4.png',
+      '/images/painting1.png',
+      '/images/painting3.png',
+      '/images/painting4.png',
+      '/images/painting1.png',
+      '/images/painting3.png',
+      '/images/painting4.png',
+      '/images/painting1.png',
+      '/images/painting3.png',
+      '/images/painting4.png',
+      '/images/painting1.png',
+      '/images/painting3.png',
+      '/images/painting4.png',
+      '/images/painting1.png',
+      '/images/painting3.png',
+      '/images/painting4.png',
+    ]
+  },
+  {
+    url: '/images/painting4.png',
+    title: 'Contact',
+    slug: 'contact',
+    description: 'Get in touch'
+  }
+];
 ---
 <style>
 .header-3d {
@@ -46,54 +133,71 @@ const currentPath = Astro.url.pathname;
 </style>
 
 <div class="header-3d" data-initial-path={currentPath}>
-  <div id="room3d-container"></div>
+  <div id="room3d-container" data-paintings={JSON.stringify(paintings)}></div>
   <nav class="header-links">
-    <a class="header-link" data-painting="0" href="/">Home</a>
-    <a class="header-link" data-painting="1" href="/gallery">Gallery</a>
-    <a class="header-link" data-painting="2" href="/about">About</a>
-    <a class="header-link" data-painting="3" href="/contact">Contact</a>
+    {paintings.map((painting, index) => (
+      <a 
+        class="header-link" 
+        data-painting={index} 
+        href={`/${painting.slug}`}
+      >
+        {painting.title}
+      </a>
+    ))}
   </nav>
 </div>
+<Lightbox />
 
 <script type="module" is:inline>
   import Room3D from '/scripts/Room3D.js';
   let room3d;
   let focusedPaintingId = null;
   
-  const paintings = [
-    {
-      url: '/images/painting1.png',
-      title: 'Home',
-      description: 'Welcome to our gallery'
-    },
-    {
-      url: '/images/painting2.png',
-      title: 'Gallery',
-      description: 'Our collection of works'
-    },
-    {
-      url: '/images/painting3.png',
-      title: 'About',
-      description: 'Learn about us'
-    },
-    {
-      url: '/images/painting4.png',
-      title: 'Contact',
-      description: 'Get in touch'
+  // Get paintings data from the data attribute
+  const container = document.getElementById('room3d-container');
+  const paintings = JSON.parse(container.dataset.paintings);
+
+  // Helper function to handle painting/link clicks
+  function handlePaintingClick(paintingId, imageIndex = 0) {
+    const link = document.querySelector(`.header-link[data-painting="${paintingId}"]`);
+    if (!link) return;
+
+    if (focusedPaintingId === paintingId) {
+      // When clicking on a focused painting or its additional images, open it in the lightbox
+      const painting = paintings[paintingId];
+      if (painting && window.lightboxFunctions) {
+        // Pass both the main image and additional images if available
+        window.lightboxFunctions.openLightbox(
+          painting.url,
+          painting.images || [],
+          imageIndex // Pass the image index to show the clicked image
+        );
+      }
+    } else {
+      // Clicking a different painting - focus on it
+      if (focusedPaintingId !== null) {
+        // Remove focus from previously focused link
+        document.querySelector(`.header-link[data-painting="${focusedPaintingId}"]`)
+          ?.classList.remove('focused');
+      }
+      focusedPaintingId = paintingId;
+      link.classList.add('focused');
+      room3d.focusOnPainting(paintingId);
+      const href = link.getAttribute('href');
+      // Update URL without page reload
+      window.history.pushState({}, '', href);
     }
-  ];
+  }
 
   // Helper function to focus on a painting based on path
   function focusFromPath(path) {
-    const pathToPaintingMap = {
-      '/': 0,
-      '/gallery': 1,
-      '/about': 2,
-      '/contact': 3
-    };
+    // Remove leading slash for comparison with slugs
+    const currentSlug = path === '/' ? '' : path.substring(1);
     
-    const paintingId = pathToPaintingMap[path];
-    if (paintingId !== undefined) {
+    // Find painting index by matching slug
+    const paintingId = paintings.findIndex(painting => painting.slug === currentSlug);
+    
+    if (paintingId !== -1) {
       focusedPaintingId = paintingId;
       room3d.focusOnPainting(paintingId);
       // Update link styles
@@ -103,6 +207,32 @@ const currentPath = Astro.url.pathname;
           link.classList.add('focused');
         }
       });
+    }
+  }
+
+  // Helper function to handle link clicks
+  function handleLinkClick(paintingId) {
+    const link = document.querySelector(`.header-link[data-painting="${paintingId}"]`);
+    if (!link) return;
+
+    if (focusedPaintingId === paintingId) {
+      // Clicking the focused link - unfocus
+      focusedPaintingId = null;
+      link.classList.remove('focused');
+      room3d.resetCamera();
+      // Update URL to root when unfocusing
+      window.history.pushState({}, '', '/');
+    } else {
+      // Clicking a different link - focus on it
+      if (focusedPaintingId !== null) {
+        document.querySelector(`.header-link[data-painting="${focusedPaintingId}"]`)
+          ?.classList.remove('focused');
+      }
+      focusedPaintingId = paintingId;
+      link.classList.add('focused');
+      room3d.focusOnPainting(paintingId);
+      const href = link.getAttribute('href');
+      window.history.pushState({}, '', href);
     }
   }
 
@@ -119,6 +249,9 @@ const currentPath = Astro.url.pathname;
       // Focus on initial painting once everything is loaded
       focusFromPath(initialPath);
     });
+
+    // Set up painting click handler
+    room3d.setOnPaintingClick(handlePaintingClick);
     
     // Link hover and click events
     document.querySelectorAll('.header-link').forEach(link => {
@@ -141,26 +274,7 @@ const currentPath = Astro.url.pathname;
       link.addEventListener('click', (e) => {
         e.preventDefault();
         if (!isNaN(paintingId)) {
-          const href = link.getAttribute('href');
-          // Update URL without page reload
-          window.history.pushState({}, '', href);
-          
-          if (focusedPaintingId === paintingId) {
-            // Clicking the focused painting - unfocus
-            focusedPaintingId = null;
-            link.classList.remove('focused');
-            room3d.resetCamera();
-          } else {
-            // Clicking a different painting - focus on it
-            if (focusedPaintingId !== null) {
-              // Remove focus from previously focused link
-              document.querySelector(`.header-link[data-painting="${focusedPaintingId}"]`)
-                ?.classList.remove('focused');
-            }
-            focusedPaintingId = paintingId;
-            link.classList.add('focused');
-            room3d.focusOnPainting(paintingId);
-          }
+          handleLinkClick(paintingId);
         }
       });
     });
