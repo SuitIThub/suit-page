@@ -1,0 +1,173 @@
+---
+// No Astro props for now; you can add props for link labels or painting count later
+// Get the current path to determine initial focus
+const currentPath = Astro.url.pathname;
+---
+<style>
+.header-3d {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+  background: #000;
+}
+#room3d-container {
+  width: 100%;
+  height: 100%;
+}
+.header-links {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  padding: 2rem 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.85) 60%, rgba(0,0,0,0));
+  z-index: 2;
+}
+.header-link {
+  font-size: 1.5rem;
+  color: #fff;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.header-link:hover {
+  color: #0077ff;
+}
+.header-link.focused {
+  color: #0077ff;
+  text-decoration: underline;
+}
+</style>
+
+<div class="header-3d" data-initial-path={currentPath}>
+  <div id="room3d-container"></div>
+  <nav class="header-links">
+    <a class="header-link" data-painting="0" href="/">Home</a>
+    <a class="header-link" data-painting="1" href="/gallery">Gallery</a>
+    <a class="header-link" data-painting="2" href="/about">About</a>
+    <a class="header-link" data-painting="3" href="/contact">Contact</a>
+  </nav>
+</div>
+
+<script type="module" is:inline>
+  import Room3D from '/scripts/Room3D.js';
+  let room3d;
+  let focusedPaintingId = null;
+  
+  const paintings = [
+    {
+      url: '/images/painting1.png',
+      title: 'Home',
+      description: 'Welcome to our gallery'
+    },
+    {
+      url: '/images/painting2.png',
+      title: 'Gallery',
+      description: 'Our collection of works'
+    },
+    {
+      url: '/images/painting3.png',
+      title: 'About',
+      description: 'Learn about us'
+    },
+    {
+      url: '/images/painting4.png',
+      title: 'Contact',
+      description: 'Get in touch'
+    }
+  ];
+
+  // Helper function to focus on a painting based on path
+  function focusFromPath(path) {
+    const pathToPaintingMap = {
+      '/': 0,
+      '/gallery': 1,
+      '/about': 2,
+      '/contact': 3
+    };
+    
+    const paintingId = pathToPaintingMap[path];
+    if (paintingId !== undefined) {
+      focusedPaintingId = paintingId;
+      room3d.focusOnPainting(paintingId);
+      // Update link styles
+      document.querySelectorAll('.header-link').forEach(link => {
+        link.classList.remove('focused');
+        if (parseInt(link.getAttribute('data-painting')) === paintingId) {
+          link.classList.add('focused');
+        }
+      });
+    }
+  }
+
+  window.addEventListener('DOMContentLoaded', () => {
+    const container = document.getElementById('room3d-container');
+    if (!container) return;
+    
+    // Get initial path
+    const headerElement = document.querySelector('.header-3d');
+    const initialPath = headerElement.getAttribute('data-initial-path');
+    
+    // Initialize Room3D with ready callback
+    room3d = new Room3D(container, paintings, () => {
+      // Focus on initial painting once everything is loaded
+      focusFromPath(initialPath);
+    });
+    
+    // Link hover and click events
+    document.querySelectorAll('.header-link').forEach(link => {
+      const paintingId = parseInt(link.getAttribute('data-painting'));
+      
+      // Handle hover events only if not currently focused
+      link.addEventListener('mouseenter', () => {
+        if (!isNaN(paintingId) && focusedPaintingId === null) {
+          room3d.focusOnPainting(paintingId);
+        }
+      });
+      
+      link.addEventListener('mouseleave', () => {
+        if (!isNaN(paintingId) && focusedPaintingId === null) {
+          room3d.resetCamera();
+        }
+      });
+
+      // Handle click events
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (!isNaN(paintingId)) {
+          const href = link.getAttribute('href');
+          // Update URL without page reload
+          window.history.pushState({}, '', href);
+          
+          if (focusedPaintingId === paintingId) {
+            // Clicking the focused painting - unfocus
+            focusedPaintingId = null;
+            link.classList.remove('focused');
+            room3d.resetCamera();
+          } else {
+            // Clicking a different painting - focus on it
+            if (focusedPaintingId !== null) {
+              // Remove focus from previously focused link
+              document.querySelector(`.header-link[data-painting="${focusedPaintingId}"]`)
+                ?.classList.remove('focused');
+            }
+            focusedPaintingId = paintingId;
+            link.classList.add('focused');
+            room3d.focusOnPainting(paintingId);
+          }
+        }
+      });
+    });
+
+    // Handle browser back/forward buttons
+    window.addEventListener('popstate', () => {
+      focusFromPath(window.location.pathname);
+    });
+  });
+</script>
