@@ -1,5 +1,6 @@
 import * as THREE from 'https://unpkg.com/three@0.176.0/build/three.module.js';
 import { debug } from './debug.js';
+import SubContentManager from './SubContentManager.js';
 
 export default class PaintingManager {
   constructor(scene, roomDimensions, maxPaintingSize) {
@@ -13,6 +14,9 @@ export default class PaintingManager {
     this.PAINTING_PADDING = 0.05; // 5cm padding between painting and additional images
     this.MAX_SIZE = 0.8; // 80cm maximum size for additional images
     this.MIN_SIZE = 0.3; // 30cm minimum size for additional images
+    
+    // Initialize SubContentManager
+    this.subContentManager = new SubContentManager(scene);
   }
 
   loadPainting(paintingData, id) {
@@ -46,7 +50,9 @@ export default class PaintingManager {
           hasAdditionalImages: paintingData.images && Array.isArray(paintingData.images) && paintingData.images.length > 0,
           additionalImagesCount: paintingData.images ? paintingData.images.length : 0,
           isPortrait: aspectRatio <= 1,
-          additionalImageMeshes: []
+          additionalImageMeshes: [],
+          hasSubContent: paintingData.sub && Array.isArray(paintingData.sub) && paintingData.sub.length > 0,
+          subContent: paintingData.sub || []
         };
 
         const painting = { id, mesh };
@@ -218,7 +224,7 @@ export default class PaintingManager {
     };
   }
 
-  positionPainting(painting, position, rotation) {
+  async positionPainting(painting, position, rotation) {
     const meshP = painting.mesh;
     
     // Position additional images if they exist
@@ -228,7 +234,7 @@ export default class PaintingManager {
 
     // If it's a portrait painting with additional images, shift it left
     if (meshP.userData.hasAdditionalImages && meshP.userData.isPortrait) {
-      const shift = -0.75; // Increased shift amount to match the small vertical gap
+      const shift = -0.75;
       switch (rotation) {
         case Math.PI / 2: // Left wall
           position.z -= shift;
@@ -246,6 +252,15 @@ export default class PaintingManager {
     meshP.rotation.y = rotation;
     this.scene.add(meshP);
 
+    // Add sub-content if it exists
+    if (meshP.userData.hasSubContent) {
+      await this.subContentManager.createSubContent(
+        painting.id,
+        meshP.userData.subContent,
+        position.clone(),
+        rotation
+      );
+    }
   }
 
   positionAdditionalImages(painting, position, rotation) {

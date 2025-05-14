@@ -46,7 +46,7 @@ export default class Room3D {
       ceiling: "/textures/ceiling.jpg",
     };
 
-    // Camera state management
+    // Track current focus for cleanup
     this.currentFocus = null;
     this.currentCameraPosition = new THREE.Vector3();
     this.currentCameraRotation = new THREE.Quaternion();
